@@ -51,6 +51,8 @@ function(req) {
 
 function(req, res, postcode = NULL, returnVals = NULL) {
 
+  # Rename database connection
+  dbr <- req$dbr
 
   # Get all the keys back
   allKeys <- "park+garden/id" %>%
@@ -97,10 +99,16 @@ function(req, res, postcode = NULL, returnVals = NULL) {
         allDists %<>% c(res %>% as.double %>% `/`(1000))
       }
 
-      allDists %>%
-        sort %>%
-        tail(returnVals = 5) %>%
-        rev
+      # Sort by size
+      allKeys %<>% `[`(
+        allDists %>%
+          sort.int(
+            decreasing = TRUE,
+            index.return = TRUE
+          ) %>%
+          `$`('ix') %>%
+          head(returnVals)
+      )
 
       # Get all
     } else {
@@ -109,6 +117,10 @@ function(req, res, postcode = NULL, returnVals = NULL) {
   }
 
   # Return table list
-  allKeys %>% table %>% as.list
+  if (postcode %>% is.null) {
+    allKeys %>% table %>% as.list
+  } else {
+    allKeys %>% table %>% as.list
+  }
 }
 
