@@ -8,6 +8,7 @@
 #'
 #' @export
 
+
 park_garden_data <- function(dbr, update = FALSE) {
 
   # Define the root redis key
@@ -33,7 +34,7 @@ park_garden_data <- function(dbr, update = FALSE) {
     # Loop over each data object
     for (i in 1:(raw.data$type %>% length)) {
       current <- raw.data$properties[i, ]
-      rKey <- root %>% paste0('/', current$OBJECTID)
+      rKey <- root %>% paste0('/id/', current$OBJECTID)
       rKey %>% dbr$HMSET(
         field = current %>% names,
         value = current %>% as.character
@@ -43,8 +44,8 @@ park_garden_data <- function(dbr, update = FALSE) {
       geoms <- geometry[[i]] %>% as.double
 
       # Create the long + lat list names
-      keyLoc <- rKey %>%
-        paste0('/', c("long", "lat"))
+      keyLoc <- root %>%
+        paste0('/', c("long", "lat"), '/', current$OBJECTID)
 
       # Define the halfway point of the long list
       halfway <- geoms %>%
@@ -54,8 +55,7 @@ park_garden_data <- function(dbr, update = FALSE) {
       # Calculate the centroid and push to redis key
       dbr %>% calculate_centroid(
         rKey = rKey,
-        geoms = geoms,
-        halfway = halfway
+        geoms = geoms
       )
 
       # Push the longitudes + latitudes to appropriate lists
