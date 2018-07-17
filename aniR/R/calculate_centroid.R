@@ -7,7 +7,7 @@
 #' @export
 
 
-calculate_centroid(dbr, rKey, geoms) {
+calculate_centroid <- function(dbr, rKey, geoms) {
 
   # Calculate centroid from geometries
   result <- geoms %>%
