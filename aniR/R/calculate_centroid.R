@@ -7,10 +7,10 @@
 #' @export
 
 
-calculate_centroid <- function(dbr, rKey, geoms) {
+calculate_centroid <- function(dbr, rKey, geom) {
 
   # Calculate centroid from geometries
-  result <- geoms %>%
+  result <- geom %>%
     matrix(ncol = 2) %>%
     geosphere::centroid() %>%
     as.double
