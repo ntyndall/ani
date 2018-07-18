@@ -8,6 +8,7 @@
 
 library(magrittr)
 library(purrr)
+library(ggmap)
 
 API_LINK <- "api.postcodes.io/postcodes/"
 
@@ -88,7 +89,7 @@ function(req, res, postcode = "", returnItems = 1) {
   }
 
   # Sort by the ID
-  allKeys %<>% order_keys()
+  allKeys %<>% aniR::order_keys()
 
   # If postcode exists then search for it
   if (postcode %>% `!=`("")) {
@@ -161,4 +162,97 @@ function(req, res, postcode = "", returnItems = 1) {
 
   # Return bigList
   bigList
+}
+
+#* Return historic parks and gardens, if _postcode_ is supplied
+#* then return the closest results
+#*
+#* @param postcode:character An NI postcode
+#* @param returnItems:int The number of results the API should return
+#*
+#* @get /gardens/map
+#*
+#* @response 200 Success
+#* @response 400 Invalid input provided
+#*
+#* @png (width = 800, height=800)
+
+
+function(req) {
+
+  # Rename db connection from incoming request
+  dbr <- req$dbr
+
+  # Create a flattened numeric vector
+  as_vec <- function(x) x %>% purrr::flatten_chr() %>% as.numeric
+
+  # Just pick these at random for testing
+  vals <- c(73, 69, 72, 77, 66)
+  all.data <- list()
+
+  # Initiate min and max long + lat
+  latMinMax <- longMinMax <- c(-100000, +100000)
+  latMinMax <- c(0, 0)
+  for (i in 1:5) {
+    test.data <- data.frame(
+      long = dbr$LRANGE(
+        key = paste0("park+garden/long/", vals[i]),
+        start = 0,
+        stop = -1
+      ) %>%
+        as_vec(),
+      lat = dbr$LRANGE(
+        key = paste0("park+garden/lat/", vals[i]),
+        start = 0,
+        stop = -1
+      ) %>%
+        as_vec(),
+      stringsAsFactors = FALSE
+    )
+
+    # Always check the extremeties..
+    if (test.data$long %>% max %>% `>`(longMinMax[1])) longMinMax[1] <- test.data$long %>% max
+    if (test.data$long %>% min %>% `>`(longMinMax[2])) longMinMax[2] <- test.data$long %>% min
+    if (test.data$lat %>% max %>% `>`(latMinMax[1])) latMinMax[1] <- test.data$lat %>% max
+    if (test.data$lat %>% min %>% `>`(latMinMax[2])) latMinMax[2] <- test.data$lat %>% min
+
+    # Save all the data in a list for later!
+    all.data %<>% c(test.data %>% list)
+  }
+
+  # Calculate zoom factor here
+  #zoomVal <- list(
+  #  long = longMinMax,
+  #  lat = latMinMax
+  #) %>%
+  #  aniR::calculate_zoom()
+
+  zoomVal <- 10
+
+  # Define the map from google maps
+  g <- ggmap::get_googlemap(
+    center = c(-5.8, 54.7),
+    size = c(600, 500),
+    maptype = 'roadmap',
+    zoom = 10,
+    scale = 2
+  ) %>%
+    ggmap::ggmap()
+
+  # Add in all the polygons
+  for (i in 1:5) {
+    single.data <- all.data[[i]]
+    g %<>% `+`(
+      ggplot2::geom_polygon(
+        data = ggplot2::fortify(single.data),
+        mapping = ggplot2::aes(long, lat),
+        fill = "orange",
+        colour = "red",
+        alpha = 0.2
+      )
+    )
+  }
+
+  # Return the plot back from the endpoint
+  plot(g)
 }
