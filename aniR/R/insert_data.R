@@ -41,40 +41,58 @@ park_garden_data <- function(dbr, update = FALSE) {
       )
 
       # Flatten to double, split in half and store in long / lat
-      geoms <- geometry[[i]] %>% as.double
+
+      # Check if geometry is multiple or not!
+      geoms <- if (geometry[[i]] %>% typeof %>% `==`("list")) {
+        tryCatch({
+          geometry[[i]] %>% purrr::map(as.double)
+        }, error = function(e) geometry[[i]][[1]] %>% purrr::map(as.double))
+      } else {
+        geometry[[i]] %>% as.double %>% list
+      }
+
+      # Get geom list length (primarily 1)
+      gLength <- geoms %>% length
 
       # Create the long + lat list names
       keyLoc <- root %>%
         paste0('/', c("long", "lat"), '/', current$OBJECTID)
 
-      # Define the halfway point of the long list
-      halfway <- geoms %>%
-        length %>%
-        `/`(2)
+      for (j in 1:gLength) {
+        geom <- geoms[[j]]
 
-      # Calculate the centroid and push to redis key
-      dbr %>% calculate_centroid(
-        rKey = rKey,
-        geoms = geoms
-      )
+        # Make sure the right keys are being used
+        keyLoc <- if (gLength == 1) keyLoc else keyLoc %>% paste0('/', j)
 
-      # Push the longitudes + latitudes to appropriate lists
-      for (j in 1:2) {
+        # Define the halfway point of the long list
+        halfway <- geom %>%
+          length %>%
+          `/`(2)
 
-        # Get the lower index
-        loInd <- j %>%
-          `-`(1) %>%
-          `*`(halfway) %>%
-          `+`(1)
-
-        # Get the upper index
-        hiInd <- j %>%
-          `*`(halfway)
-
-        # Push the values to the appropriate key
-        keyLoc[j] %>% dbr$RPUSH(
-          value = geoms[loInd:hiInd]
+        # Calculate the centroid and push to redis key
+        dbr %>% aniR::calculate_centroid(
+          rKey = rKey,
+          geom = geom
         )
+
+        # Push the longitudes + latitudes to appropriate lists
+        for (k in 1:2) {
+
+          # Get the lower index
+          loInd <- k %>%
+            `-`(1) %>%
+            `*`(halfway) %>%
+            `+`(1)
+
+          # Get the upper index
+          hiInd <- k %>%
+            `*`(halfway)
+
+          # Push the values to the appropriate key
+          keyLoc[k] %>% dbr$RPUSH(
+            value = geom[loInd:hiInd]
+          )
+        }
       }
     }
   }
