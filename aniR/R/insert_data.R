@@ -44,6 +44,7 @@ park_garden_data <- function(dbr, update = FALSE) {
 
       # Check if geometry is multiple or not!
       geoms <- if (geometry[[i]] %>% typeof %>% `==`("list")) {
+        # This is due to nastiness in the data set, not conforming to a single structure
         tryCatch({
           geometry[[i]] %>% purrr::map(as.double)
         }, error = function(e) geometry[[i]][[1]] %>% purrr::map(as.double))
@@ -58,6 +59,12 @@ park_garden_data <- function(dbr, update = FALSE) {
       keyLoc <- root %>%
         paste0('/', c("long", "lat"), '/', current$OBJECTID)
 
+      # Calculate the centroid and push to redis key
+      dbr %>% aniR::calculate_centroid(
+        rKey = rKey,
+        geoms = geoms
+      )
+
       for (j in 1:gLength) {
         geom <- geoms[[j]]
 
@@ -68,12 +75,6 @@ park_garden_data <- function(dbr, update = FALSE) {
         halfway <- geom %>%
           length %>%
           `/`(2)
-
-        # Calculate the centroid and push to redis key
-        dbr %>% aniR::calculate_centroid(
-          rKey = rKey,
-          geom = geom
-        )
 
         # Push the longitudes + latitudes to appropriate lists
         for (k in 1:2) {

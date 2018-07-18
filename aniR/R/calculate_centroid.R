@@ -7,17 +7,22 @@
 #' @export
 
 
-calculate_centroid <- function(dbr, rKey, geom) {
+calculate_centroid <- function(dbr, rKey, geoms) {
 
-  # Calculate centroid from geometries
-  result <- geom %>%
-    matrix(ncol = 2) %>%
-    geosphere::centroid() %>%
-    as.double
+  # Calculate centroid from multiple geometries
+  result <- c(0, 0)
+  for (i in 1:(geoms %>% length)) {
+    result %<>% `+`(
+      geoms[[i]] %>%
+        matrix(ncol = 2) %>%
+        geosphere::centroid() %>%
+        as.double
+    )
+  }
 
   # Update the redis key with centroid results
   rKey %>% dbr$HMSET(
     field = c('CENT_LONG', "CENT_LAT"),
-    value = result
+    value = result %>% `/`(geoms %>% length)
   )
 }
