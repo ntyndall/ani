@@ -13,5 +13,7 @@ Imports:
   magrittr,
   plumber,
   geosphere,
-  httr
+  httr,
+  ggmap,
+  ggplot2
 RoxygenNote: 6.0.1
