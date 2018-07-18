@@ -4,7 +4,7 @@
 \alias{calculate_centroid}
 \title{Calculate Centroid}
 \usage{
-calculate_centroid(dbr, rKey, geoms)
+calculate_centroid(dbr, rKey, geom)
 }
 \description{
 Calculates the centroid from a vector of
