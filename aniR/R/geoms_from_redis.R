@@ -62,12 +62,20 @@ geoms_from_redis <- function(dbr, geomType, closest) {
     all.data %<>% c(fr %>% list)
   }
 
+  # Due to multiple geometries, need to recalculate Object IDs
+  oids <- longFields %>%
+    strsplit(split = "/") %>%
+    purrr::map(3) %>%
+    purrr::flatten_chr() %>%
+    as.integer
+
   # Return a named list of important information
   return(
     list(
       data = all.data,
       long = longMinMax,
-      lat = latMinMax
+      lat = latMinMax,
+      oids = oids
     )
   )
 }
