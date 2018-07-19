@@ -12,6 +12,7 @@ LazyData: true
 Imports:
   magrittr,
   plumber,
+  redux,
   geosphere,
   httr,
   ggmap,
