@@ -94,56 +94,22 @@ function(req, res, postcode = "", returnItems = 1) {
   # If postcode exists then search for it
   if (postcode %>% `!=`("")) {
 
-    # Query using the supplied postcode
-    results <- API_LINK %>%
-      paste0(postcode) %>%
-      httr::GET()
-
-    # If postcode is successful then look up database
-    if (results$status_code == 200) {
-
-      # Convert the results to a data frame
-      my.data <- results$content %>%
-        rawToChar() %>%
-        jsonlite::fromJSON()
-
-      # Create a vector of the current location via long + lat
-      currentLoc <- c(my.data$result$longitude, my.data$result$latitude) %>%
-        as.double
-
-      # Collect ALL distances!
-      allDists <- c()
-      for (i in 1:(allKeys %>% length)) {
-        newLoc <- allKeys[i] %>%
-          dbr$HMGET(field = c('CENT_LONG', "CENT_LAT")) %>%
-          purrr::flatten_chr() %>%
-          as.double
-
-        # Calculate distance based on long + lat's
-        res <- geosphere::distm(
-          x = currentLoc,
-          y = newLoc,
-          fun = geosphere::distHaversine
-        )
-
-        # Distance in Km
-        allDists %<>% c(res %>% as.double %>% `/`(1000))
-      }
-
-      # Sort by size
-      allKeys %<>% `[`(
-        allDists %>%
-          sort.int(
-            decreasing = FALSE,
-            index.return = TRUE
-          ) %>%
-          `$`('ix') %>%
-          head(returnItems)
+    # Get postcode information
+    postC <- API_LINK %>%
+      aniR::get_postcode(
+        postcode = postcode
       )
 
-      # Get all
+    if (postC$status == 200) {
+
+      # Return the closest locations from the postcode
+      closest <- dbr %>% aniR::return_closest(
+        allKeys = allKeys,
+        currentLoc = postC$location,
+        returnItems = returnItems
+      )
     } else {
-      res$status <- 400 # Bad request
+      res$status <- postC$status
     }
   }
 
@@ -153,7 +119,12 @@ function(req, res, postcode = "", returnItems = 1) {
   } else {
     bigList <- list()
     for (j in 1:returnItems) {
-      res <- allKeys[j] %>% dbr$HGETALL() %>% purrr::flatten_chr()
+      # Get all hash results
+      res <- closest[j] %>%
+        dbr$HGETALL() %>%
+        purrr::flatten_chr()
+
+      # Convert to named list
       newres <- res[c(FALSE, TRUE)] %>% as.list
       names(newres) <- res[c(TRUE, FALSE)]
       bigList %<>% c(newres %>% list)
