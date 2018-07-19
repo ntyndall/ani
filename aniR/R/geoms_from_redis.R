@@ -5,6 +5,9 @@
 
 geoms_from_redis <- function(dbr, geomType, closest) {
 
+  # Define rpipeline
+  rPipe <- redux::redis
+
   # Create longitude redis key search first
   matcher <- geomType %>%
     paste0("/long/") %>%
@@ -33,9 +36,28 @@ geoms_from_redis <- function(dbr, geomType, closest) {
         purrr::flatten_chr()
     )
 
+  # Due to multiple geometries, need to recalculate Object IDs
+  oids <- longFields %>%
+    strsplit(split = "/") %>%
+    purrr::map(3) %>%
+    purrr::flatten_chr() %>%
+    as.integer
+
+  # Initialise value storer + minmax's
+  stored <- c()
+  colInd <- 0
+
   # Get all co-ordinates from redis
-  all.data <- list()
+  all.data <- data.frame(stringsAsFactors = FALSE)
   for (i in 1:(longFields %>% length)) {
+
+    # ...
+    if (oids[i] %in% stored %>% `!`()) {
+      colInd %<>% `+`(1)
+      stored %<>% c(oids[i])
+    }
+
+    # Build data frame from redis list calls
     fr <- data.frame(
       long = dbr$LRANGE(
         key = longFields[i],
@@ -52,29 +74,19 @@ geoms_from_redis <- function(dbr, geomType, closest) {
       stringsAsFactors = FALSE
     )
 
-    # Always check the extremeties..
-    if (fr$long %>% min %>% `<`(longMinMax[1]) || i == 1) longMinMax[1] <- fr$long %>% min
-    if (fr$long %>% max %>% `>`(longMinMax[2]) || i == 1) longMinMax[2] <- fr$long %>% max
-    if (fr$lat %>% min %>% `<`(latMinMax[1]) || i == 1) latMinMax[1] <- fr$lat %>% min
-    if (fr$lat %>% max %>% `>`(latMinMax[2]) || i == 1) latMinMax[2] <- fr$lat %>% max
+    # Assign a factor of group
+    fr$group <- colInd
 
     # Save all the data in a list for later!
-    all.data %<>% c(fr %>% list)
+    all.data %<>% rbind(fr)
   }
-
-  # Due to multiple geometries, need to recalculate Object IDs
-  oids <- longFields %>%
-    strsplit(split = "/") %>%
-    purrr::map(3) %>%
-    purrr::flatten_chr() %>%
-    as.integer
 
   # Return a named list of important information
   return(
     list(
       data = all.data,
-      long = longMinMax,
-      lat = latMinMax,
+      long = c(all.data$long %>% min, all.data$long %>% max),
+      lat = c(all.data$lat %>% min, all.data$lat %>% max),
       oids = oids
     )
   )
