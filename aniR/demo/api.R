@@ -178,21 +178,33 @@ function(req, res, postcode = "", returnItems = 1) {
 #* @png (width = 800, height=800)
 
 
-function(req) {
+function(req, postcode = "") {
 
   # Rename db connection from incoming request
   dbr <- req$dbr
+
+  # Calculate center from postcode
+  results <- API_LINK %>%
+    paste0(postcode) %>%
+    httr::GET()
+
+  # Convert the results to a data frame
+  my.data <- results$content %>%
+    rawToChar() %>%
+    jsonlite::fromJSON()
+
+  # Create a vector of the current location via long + lat
+  currentCenter <- c(my.data$result$longitude, my.data$result$latitude) %>%
+    as.double
 
   # Create a flattened numeric vector
   as_vec <- function(x) x %>% purrr::flatten_chr() %>% as.numeric
 
   # Just pick these at random for testing
   vals <- c(73, 69, 72, 77, 66)
-  all.data <- list()
 
-  # Initiate min and max long + lat
-  latMinMax <- longMinMax <- c(-100000, +100000)
-  latMinMax <- c(0, 0)
+  # Collect all the data (still need to account for multiple polygons)
+  all.data <- list()
   for (i in 1:5) {
     test.data <- data.frame(
       long = dbr$LRANGE(
@@ -211,30 +223,45 @@ function(req) {
     )
 
     # Always check the extremeties..
-    if (test.data$long %>% max %>% `>`(longMinMax[1])) longMinMax[1] <- test.data$long %>% max
-    if (test.data$long %>% min %>% `>`(longMinMax[2])) longMinMax[2] <- test.data$long %>% min
-    if (test.data$lat %>% max %>% `>`(latMinMax[1])) latMinMax[1] <- test.data$lat %>% max
-    if (test.data$lat %>% min %>% `>`(latMinMax[2])) latMinMax[2] <- test.data$lat %>% min
+    if (test.data$long %>% min %>% `<`(longMinMax[1]) || i == 1) longMinMax[1] <- test.data$long %>% min
+    if (test.data$long %>% max %>% `>`(longMinMax[2]) || i == 1) longMinMax[2] <- test.data$long %>% max
+    if (test.data$lat %>% min %>% `<`(latMinMax[1]) || i == 1) latMinMax[1] <- test.data$lat %>% min
+    if (test.data$lat %>% max %>% `>`(latMinMax[2]) || i == 1) latMinMax[2] <- test.data$lat %>% max
 
     # Save all the data in a list for later!
     all.data %<>% c(test.data %>% list)
   }
 
-  # Calculate zoom factor here
-  #zoomVal <- list(
-  #  long = longMinMax,
-  #  lat = latMinMax
-  #) %>%
-  #  aniR::calculate_zoom()
+  # Add the center into min and max..
+  if (currentCenter[1] < longMinMax[1]) longMinMax[1] <- currentCenter[1]
+  if (currentCenter[1] > longMinMax[2]) longMinMax[2] <- currentCenter[1]
+  if (currentCenter[2] < latMinMax[1]) latMinMax[1] <- currentCenter[2]
+  if (currentCenter[2] > latMinMax[2]) latMinMax[2] <- currentCenter[2]
 
-  zoomVal <- 10
+  # Spread out just a little (to be on the safe side)
+  longMinMax[1] %<>% `-`(0.01)
+  longMinMax[2] %<>% `+`(0.01)
+  latMinMax[1] %<>% `-`(0.01)
+  latMinMax[2] %<>% `+`(0.01)
+
+  # Calculate zoom factor here
+  zoomVal <- list(
+    long = longMinMax,
+    lat = latMinMax
+  ) %>%
+    aniR::calculate_zoom()
+
+  # Calculate new center position
+  newCenter <- c(
+    longMinMax[2] %>% `-`(longMinMax[1]) %>% `/`(2) %>% `+`(longMinMax[1]),
+    latMinMax[2] %>% `-`(latMinMax[1]) %>% `/`(2) %>% `+`(latMinMax[1])
+  )
 
   # Define the map from google maps
   g <- ggmap::get_googlemap(
-    center = c(-5.8, 54.7),
-    size = c(600, 500),
+    center = newCenter,
     maptype = 'roadmap',
-    zoom = 10,
+    zoom = zoomVal,
     scale = 2
   ) %>%
     ggmap::ggmap()
