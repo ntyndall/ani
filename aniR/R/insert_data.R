@@ -69,7 +69,7 @@ park_garden_data <- function(dbr, update = FALSE) {
         geom <- geoms[[j]]
 
         # Make sure the right keys are being used
-        keyLoc <- if (gLength == 1) keyLoc else keyLoc %>% paste0('/', j)
+        newLoc <- if (gLength == 1) keyLoc else keyLoc %>% paste0('/', j)
 
         # Define the halfway point of the long list
         halfway <- geom %>%
@@ -90,7 +90,7 @@ park_garden_data <- function(dbr, update = FALSE) {
             `*`(halfway)
 
           # Push the values to the appropriate key
-          keyLoc[k] %>% dbr$RPUSH(
+          newLoc[k] %>% dbr$RPUSH(
             value = geom[loInd:hiInd]
           )
         }
