@@ -4,5 +4,5 @@
 \alias{order_keys}
 \title{Order Keys}
 \usage{
-order_keys(allKeys, mapBy = 3)
+order_keys(dbr, keyType, mapBy = 3)
 }
