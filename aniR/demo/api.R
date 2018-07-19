@@ -9,6 +9,7 @@
 library(magrittr)
 library(purrr)
 library(ggmap)
+library(ggplot2)
 
 API_LINK <- "api.postcodes.io/postcodes/"
 
@@ -194,6 +195,7 @@ function(req, postcode = "", returnItems = 1) {
       all.data <- results$data
       longMinMax <- results$long
       latMinMax <- results$lat
+      oids <- results$oids
 
       # Add the center into min and max..
       if (currentCenter[1] < longMinMax[1]) longMinMax[1] <- currentCenter[1]
@@ -229,23 +231,28 @@ function(req, postcode = "", returnItems = 1) {
       ) %>%
         ggmap::ggmap()
 
-      # Add in all the polygons
-      for (i in 1:(all.data %>% length)) {
-        single.data <- all.data[[i]]
-        g %<>% `+`(
-          ggplot2::geom_polygon(
-            data = ggplot2::fortify(single.data),
-            mapping = ggplot2::aes(long, lat),
-            fill = "orange",
-            colour = "red",
-            alpha = 0.2
-          )
+      # Add polygon layers
+      g %<>% `+`(
+        ggplot2::geom_polygon(
+          data = all.data,
+          mapping = ggplot2::aes(long, lat, fill = as.factor(group), colour = as.factor(group)),
+          alpha = 0.2
         )
-      }
-
-      # Need to add a theme for plotting here
-      # g %<>% aniR::google_theme()
-
+      ) %>%
+        `+`( # Remove legend from `colour` factor
+          ggplot2::scale_fill_discrete(
+            guide = FALSE
+          )
+        ) %>%
+        `+`( # Change x-axis label
+          ggplot2::xlab("Longitude")
+        ) %>%
+        `+`( # Change y-axis label
+          ggplot2::ylab("Latitude")
+        ) %>%
+        `+`( # Include a pre-defined theme for plots
+          aniR::plot_theme("Garuda")
+        )
     } else {
       res$status <- postC$status
     }
