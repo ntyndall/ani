@@ -37,7 +37,7 @@ return_closest <- function(dbr, allKeys, currentLoc, returnItems) {
     matrix(ncol = 2)
 
   # Calculate distances using the haversine distance method (in km)
-  allDist <- geosphere::distm(
+  allDists <- geosphere::distm(
     x = currentLoc,
     y = distMatrix,
     fun = geosphere::distHaversine
