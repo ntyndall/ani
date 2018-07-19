@@ -280,6 +280,9 @@ function(req, postcode = "") {
     )
   }
 
+  # Need to add a theme for plotting here
+  # g %<>% aniR::google_theme()
+
   # Return the plot back from the endpoint
   plot(g)
 }
