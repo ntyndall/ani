@@ -75,11 +75,11 @@ function(req, res, postcode = "", returnItems = 1) {
   # Rename database connection
   dbr <- req$dbr
 
-  # Get all the keys back
-  allKeys <- "park+garden/id" %>%
-    paste0("*") %>%
-    dbr$KEYS() %>%
-    purrr::flatten_chr()
+  # Get all the sorted keys back
+  allKeys <- dbr %>%
+    aniR::order_keys(
+      keyType = "park+garden/id"
+    )
 
   # Set returnItems
   returnItems <- if (returnItems == 0) {
@@ -87,9 +87,6 @@ function(req, res, postcode = "", returnItems = 1) {
   } else {
     returnItems %>% min(allKeys %>% length)
   }
-
-  # Sort by the ID
-  allKeys %<>% aniR::order_keys()
 
   # If postcode exists then search for it
   if (postcode %>% `!=`("")) {
@@ -149,10 +146,19 @@ function(req, res, postcode = "", returnItems = 1) {
 #* @png (width = 800, height=800)
 
 
-function(req, postcode = "") {
+function(req, postcode = "", returnItems = 1) {
+
+  # Need to make sure this is an int!
+  returnItems %<>% as.integer
 
   # Rename db connection from incoming request
   dbr <- req$dbr
+
+  # Get all the sorted keys back
+  allKeys <- dbr %>%
+    aniR::order_keys(
+      keyType = "park+garden/id"
+    )
 
   # Calculate longitutde and latitude from postcode
   if (postcode %>% `!=`("")) {
@@ -167,37 +173,27 @@ function(req, postcode = "") {
       # Create a flattened numeric vector
       as_vec <- function(x) x %>% purrr::flatten_chr() %>% as.numeric
 
-      # Just pick these at random for testing
-      vals <- c(73, 69, 72, 77, 66)
+      # Get the closest indexes
+      closest <- dbr %>% aniR::return_closest(
+        allKeys = allKeys,
+        currentLoc = currentCenter,
+        returnItems = returnItems
+      ) %>%
+        strsplit(split = "/") %>%
+        purrr::map(3) %>%
+        purrr::flatten_chr() %>%
+        as.integer
 
-      # Collect all the data (still need to account for multiple polygons)
-      all.data <- list()
-      for (i in 1:5) {
-        test.data <- data.frame(
-          long = dbr$LRANGE(
-            key = paste0("park+garden/long/", vals[i]),
-            start = 0,
-            stop = -1
-          ) %>%
-            as_vec(),
-          lat = dbr$LRANGE(
-            key = paste0("park+garden/lat/", vals[i]),
-            start = 0,
-            stop = -1
-          ) %>%
-            as_vec(),
-          stringsAsFactors = FALSE
-        )
+      # Get geometry keys + collect all the data
+      results <- dbr %>% aniR::geoms_from_redis(
+        geomType = "park+garden",
+        closest = closest
+      )
 
-        # Always check the extremeties..
-        if (test.data$long %>% min %>% `<`(longMinMax[1]) || i == 1) longMinMax[1] <- test.data$long %>% min
-        if (test.data$long %>% max %>% `>`(longMinMax[2]) || i == 1) longMinMax[2] <- test.data$long %>% max
-        if (test.data$lat %>% min %>% `<`(latMinMax[1]) || i == 1) latMinMax[1] <- test.data$lat %>% min
-        if (test.data$lat %>% max %>% `>`(latMinMax[2]) || i == 1) latMinMax[2] <- test.data$lat %>% max
-
-        # Save all the data in a list for later!
-        all.data %<>% c(test.data %>% list)
-      }
+      # Rename here for ease
+      all.data <- results$data
+      longMinMax <- results$long
+      latMinMax <- results$lat
 
       # Add the center into min and max..
       if (currentCenter[1] < longMinMax[1]) longMinMax[1] <- currentCenter[1]
@@ -234,7 +230,7 @@ function(req, postcode = "") {
         ggmap::ggmap()
 
       # Add in all the polygons
-      for (i in 1:5) {
+      for (i in 1:(all.data %>% length)) {
         single.data <- all.data[[i]]
         g %<>% `+`(
           ggplot2::geom_polygon(
