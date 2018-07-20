@@ -21,20 +21,20 @@ plot_theme <- function(fontFamily = 'Purisa') { # nocov start
       legend.title = ggplot2::element_text(
         family = fontFamily,
         face =  'plain',
-        colour = '#353535',
+        colour = 'black',
         size = 20
       ),
       legend.text = ggplot2::element_text(
         family = fontFamily,
         face = 'plain',
-        colour = "#353535",
+        colour = "black",
         size = 14
       ),
       legend.key = ggplot2::element_blank(),
       axis.text.x = ggplot2::element_text(
         family = fontFamily,
         face =  'plain',
-        colour = '#353535',
+        colour = 'black',
         size = 12,
         angle = 20,
         hjust = 1
@@ -42,18 +42,19 @@ plot_theme <- function(fontFamily = 'Purisa') { # nocov start
       axis.text.y = ggplot2::element_text(
         family = fontFamily,
         face = 'plain',
-        colour = '#353535',
+        colour = 'black',
         size = 12
       ),
       panel.border = ggplot2::element_rect(
         linetype = "dashed",
-        colour = '#353535',
-        fill = NA
+        colour = 'black',
+        fill = NA,
+        size = 0.8
       ),
       text = ggplot2::element_text(
         family = fontFamily,
         face = 'plain',
-        colour = '#353535',
+        colour = 'black',
         size = 20
       ),
       panel.background = ggplot2::element_rect(
@@ -64,8 +65,11 @@ plot_theme <- function(fontFamily = 'Purisa') { # nocov start
       ),
       legend.background = ggplot2::element_rect(
         fill = "white",
-        size = 0.5
+        size = 0.8,
+        linetype = "dashed",
+        colour = "black"
       )
     )
   )
 } # nocov end
+
