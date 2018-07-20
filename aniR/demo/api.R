@@ -144,10 +144,10 @@ function(req, res, postcode = "", returnItems = 1) {
 #* @response 200 Success
 #* @response 400 Invalid input provided
 #*
-#* @png (width = 800, height=800)
+#* @png (width = 871, height=565)
 
 
-function(req, postcode = "", returnItems = 1) {
+function(req, res, postcode = "", returnItems = 1) {
 
   # Need to make sure this is an int!
   returnItems %<>% as.integer
@@ -203,23 +203,36 @@ function(req, postcode = "", returnItems = 1) {
       if (currentCenter[2] < latMinMax[1]) latMinMax[1] <- currentCenter[2]
       if (currentCenter[2] > latMinMax[2]) latMinMax[2] <- currentCenter[2]
 
-      # Spread out just a little (to be on the safe side)
-      longMinMax[1] %<>% `-`(0.01)
-      longMinMax[2] %<>% `+`(0.01)
-      latMinMax[1] %<>% `-`(0.01)
-      latMinMax[2] %<>% `+`(0.01)
-
       # Calculate zoom factor here
       zoomVal <- list(
         long = longMinMax,
-        lat = latMinMax
+        lat = latMinMax,
+        center = currentCenter
       ) %>%
         aniR::calculate_zoom()
+
+      ### JITTER SHOULD BE MOVED INSIDE CALCULATE_ZOOM AT SOME POINT ###
+      # Calculate jitter from zoomVal (5% of total)
+      #mapJitter <- aniR::values[zoomVal %>% `-`(10) %>% `+`(1)] %>%
+      #  `*`(0.05)
+
+      # Spread out just a little (to be on the safe side)
+      #longMinMax[1] %<>% `-`(mapJitter)
+      #longMinMax[2] %<>% `+`(mapJitter)
+      #latMinMax[1] %<>% `-`(mapJitter)
+      #latMinMax[2] %<>% `+`(mapJitter)
 
       # Calculate new center position
       newCenter <- c(
         longMinMax[2] %>% `-`(longMinMax[1]) %>% `/`(2) %>% `+`(longMinMax[1]),
         latMinMax[2] %>% `-`(latMinMax[1]) %>% `/`(2) %>% `+`(latMinMax[1])
+      )
+
+      # Set up data frame of postcode query for the plot
+      myLocation <- data.frame(
+        x = currentCenter[1],
+        y = currentCenter[2],
+        stringsAsFactors = FALSE
       )
 
       # Define the map from google maps
@@ -239,9 +252,24 @@ function(req, postcode = "", returnItems = 1) {
           alpha = 0.2
         )
       ) %>%
-        `+`( # Remove legend from `colour` factor
+        `+`( # Remove legend from `fill` factor
           ggplot2::scale_fill_discrete(
+            name = "Areas"
+          )
+        ) %>%
+        `+`( # Remove legend from `colour` factor
+          ggplot2::scale_color_discrete(
             guide = FALSE
+          )
+        ) %>%
+        `+`( # Add current query location point
+          ggplot2::geom_point(
+            data = myLocation,
+            mapping = ggplot2::aes(x = x, y = y),
+            size = 3,
+            shape = 21,
+            color = "black",
+            fill = "red"
           )
         ) %>%
         `+`( # Change x-axis label
@@ -250,8 +278,11 @@ function(req, postcode = "", returnItems = 1) {
         `+`( # Change y-axis label
           ggplot2::ylab("Latitude")
         ) %>%
+        `+`(
+          ggplot2::ggtitle(postcode %>% toupper)
+        )%>%
         `+`( # Include a pre-defined theme for plots
-          aniR::plot_theme("Garuda")
+          aniR::plot_theme()
         )
     } else {
       res$status <- postC$status
