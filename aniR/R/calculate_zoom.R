@@ -15,24 +15,31 @@
 
 
 calculate_zoom <- function(zoomExtremes) {
+
+  # This is only true for longitude (need to fix for latitude as well!)
   startingInd <- 10
-  zoomBoundaries <- c(0.42, 0.22, 0.12, 0.052, 0.025, 0.0125)
   type <- c("long", "lat")
 
-  return(
-    sapply(
-      X = 1:(type %>% length),
-      FUN = function(i) {
-        zoomExtremes[[type[i]]][2] %>%
-          `-`(zoomExtremes[[type[i]]][1]) %>%
-          `/`(2) %>%
-          `<`(zoomBoundaries) %>%
-          as.logical %>%
-          sum %>%
-          `+`(startingInd) %>%
-          `-`(1)
-       }
-    ) %>% min
-  )
-}
+  # These are the half tick max length allowed
+  newVals <- aniR::values
 
+  bothZooms <- c()
+  for (i in 1:(type %>% length)) {
+    # Predict lat / long fraction
+    frac <- predict(aniR::centerFit, data.frame(x = zoomExtremes$center[i] %>% abs)) %>%
+      as.numeric %>%
+      min(1)
+
+    # Get zooms
+    finalZoom <- zoomExtremes[[type[i]]][2] %>%
+      `-`(zoomExtremes$center[i]) %>%
+      `<`(newVals * frac) %>%
+      sum %>%
+      `-`(1) %>%
+      `+`(startingInd)
+
+    bothZooms %<>% c(finalZoom)
+  }
+
+  return(bothZooms %>% min)
+}
