@@ -55,6 +55,14 @@ geoms_from_redis <- function(dbr, geomType, closest) {
     if (oids[i] %in% stored %>% `!`()) {
       colInd %<>% `+`(1)
       stored %<>% c(oids[i])
+
+      # Get Item name
+      itemName <- geomType %>%
+        paste0("/id/") %>%
+        paste0(oids[i]) %>%
+        dbr$HGET("SITE") %>%
+        tolower %>%
+        Hmisc::capitalize()
     }
 
     # Build data frame from redis list calls
@@ -75,7 +83,7 @@ geoms_from_redis <- function(dbr, geomType, closest) {
     )
 
     # Assign a factor of group
-    fr$group <- colInd
+    fr$group <- paste0(colInd, ' : ', itemName)
 
     # Save all the data in a list for later!
     all.data %<>% rbind(fr)
