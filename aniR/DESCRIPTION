@@ -11,6 +11,7 @@ Encoding: UTF-8
 LazyData: true
 Imports:
   magrittr,
+  leaflet,
   plumber,
   redux,
   geosphere,
