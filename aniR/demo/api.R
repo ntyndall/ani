@@ -138,6 +138,7 @@ function(req, res, postcode = "", returnItems = 1) {
 #*
 #* @param postcode:character An NI postcode
 #* @param num:int The number of results the API should return
+#* @param dark:bool True or False for light or dark map
 #*
 #* @get /gardens/map
 #*
@@ -147,7 +148,7 @@ function(req, res, postcode = "", returnItems = 1) {
 #* @serializer htmlwidget
 
 
-function(req, res, postcode = "", num = 1) {
+function(req, res, postcode = "", num = 1, dark = FALSE) {
 
   # Need to make sure this is an int!
   num %<>% as.integer
@@ -241,6 +242,8 @@ function(req, res, postcode = "", num = 1) {
         leaflet::addTiles() %>%
         leaflet::addPolygons(color = "red", fillColor = "red") %>%
         leaflet::addMarkers(lng = myLocation$x, lat = myLocation$y, popup = "Current Location")
+
+      if (dark) m %<>% leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter)
     } else {
       res$status <- postC$status
     }
