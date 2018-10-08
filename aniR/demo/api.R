@@ -137,20 +137,20 @@ function(req, res, postcode = "", returnItems = 1) {
 #* then return the closest results
 #*
 #* @param postcode:character An NI postcode
-#* @param returnItems:int The number of results the API should return
+#* @param num:int The number of results the API should return
 #*
 #* @get /gardens/map
 #*
 #* @response 200 Success
 #* @response 400 Invalid input provided
 #*
-#* @png (width = 871, height=565)
+#* @serializer htmlwidget
 
 
-function(req, res, postcode = "", returnItems = 1) {
+function(req, res, postcode = "", num = 1) {
 
   # Need to make sure this is an int!
-  returnItems %<>% as.integer
+  num %<>% as.integer
 
   # Rename db connection from incoming request
   dbr <- req$dbr
@@ -178,7 +178,7 @@ function(req, res, postcode = "", returnItems = 1) {
       closest <- dbr %>% aniR::return_closest(
         allKeys = allKeys,
         currentLoc = currentCenter,
-        returnItems = returnItems
+        returnItems = num
       ) %>%
         strsplit(split = "/") %>%
         purrr::map(3) %>%
@@ -186,10 +186,11 @@ function(req, res, postcode = "", returnItems = 1) {
         as.integer
 
       # Get geometry keys + collect all the data
-      results <- dbr %>% aniR::geoms_from_redis(
-        geomType = "park+garden",
-        closest = closest
-      )
+      results <- dbr %>%
+        aniR::geoms_from_redis(
+          geomType = "park+garden",
+          closest = closest
+        )
 
       # Rename here for ease
       all.data <- results$data
@@ -211,17 +212,6 @@ function(req, res, postcode = "", returnItems = 1) {
       ) %>%
         aniR::calculate_zoom()
 
-      ### JITTER SHOULD BE MOVED INSIDE CALCULATE_ZOOM AT SOME POINT ###
-      # Calculate jitter from zoomVal (5% of total)
-      #mapJitter <- aniR::values[zoomVal %>% `-`(10) %>% `+`(1)] %>%
-      #  `*`(0.05)
-
-      # Spread out just a little (to be on the safe side)
-      #longMinMax[1] %<>% `-`(mapJitter)
-      #longMinMax[2] %<>% `+`(mapJitter)
-      #latMinMax[1] %<>% `-`(mapJitter)
-      #latMinMax[2] %<>% `+`(mapJitter)
-
       # Calculate new center position
       newCenter <- c(
         longMinMax[2] %>% `-`(longMinMax[1]) %>% `/`(2) %>% `+`(longMinMax[1]),
@@ -235,68 +225,30 @@ function(req, res, postcode = "", returnItems = 1) {
         stringsAsFactors = FALSE
       )
 
-      # Define the map from google maps
-      g <- ggmap::get_googlemap(
-        center = newCenter,
-        maptype = 'roadmap',
-        zoom = zoomVal,
-        scale = 2
-      ) %>%
-        ggmap::ggmap()
+      # Get all data and get it ready for leaflet
+      new.data <- data.frame()
+      uniqGroups <- all.data$group %>% unique
+      for (k in 1:(uniqGroups %>% length)) {
+        subs.data <- all.data %>% subset(all.data$group %>% `==`(uniqGroups[k]))
+        new.data %<>% rbind(subs.data[ , 1:2])
+        if (k != (uniqGroups %>% length)) new.data %<>% rbind(NA)
+      }
 
-      # Add polygon layers
-      g %<>% `+`(
-        ggplot2::geom_polygon(
-          data = all.data,
-          mapping = ggplot2::aes(long, lat, fill = as.factor(group), colour = as.factor(group)),
-          alpha = 0.2
-        )
-      ) %>%
-        `+`( # Remove legend from `fill` factor
-          ggplot2::scale_fill_discrete(
-            name = "Areas"
-          )
-        ) %>%
-        `+`( # Remove legend from `colour` factor
-          ggplot2::scale_color_discrete(
-            guide = FALSE
-          )
-        ) %>%
-        `+`( # Add current query location point
-          ggplot2::geom_point(
-            data = myLocation,
-            mapping = ggplot2::aes(x = x, y = y),
-            size = 3,
-            shape = 21,
-            color = "black",
-            fill = "red"
-          )
-        ) %>%
-        `+`( # Change x-axis label
-          ggplot2::xlab("Longitude")
-        ) %>%
-        `+`( # Change y-axis label
-          ggplot2::ylab("Latitude")
-        ) %>%
-        `+`(
-          ggplot2::ggtitle(postcode %>% toupper)
-        )%>%
-        `+`( # Include a pre-defined theme for plots
-          aniR::plot_theme()
-        )
+      # Create the widget here
+      m <- new.data %>%
+        as.matrix %>%
+        leaflet::leaflet() %>%
+        leaflet::addTiles() %>%
+        leaflet::addPolygons(color = "red", fillColor = "red") %>%
+        leaflet::addMarkers(lng = myLocation$x, lat = myLocation$y, popup = "Current Location")
     } else {
       res$status <- postC$status
     }
   } else {
-    g <- ggmap::get_googlemap(
-      center = c(-6.7, 54.7),
-      maptype = 'roadmap',
-      zoom = 8,
-      scale = 2
-    ) %>%
-      ggmap::ggmap()
+    m <- leaflet::leaflet() %>%
+      leaflet::addTiles()
   }
 
   # Return the plot back from the endpoint
-  plot(g)
+  return(m)
 }
