@@ -5,6 +5,9 @@
 
 geoms_from_redis <- function(dbr, geomType, closest) {
 
+  # Create a flattened numeric vector
+  as_vec <- function(x) x %>% purrr::flatten_chr() %>% as.numeric
+
   # Define rpipeline
   rPipe <- redux::redis
 
