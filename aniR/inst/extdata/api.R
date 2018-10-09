@@ -138,7 +138,6 @@ function(req, res, postcode = "", returnItems = 1) {
 #*
 #* @param postcode:character An NI postcode
 #* @param num:int The number of results the API should return
-#* @param dark:bool True or False for light or dark map
 #*
 #* @get /gardens/map
 #*
@@ -148,7 +147,7 @@ function(req, res, postcode = "", returnItems = 1) {
 #* @serializer htmlwidget
 
 
-function(req, res, postcode = "", num = 1, dark = FALSE) {
+function(req, res, postcode = "", num = 1) {
 
   # Need to make sure this is an int!
   num %<>% as.integer
@@ -172,9 +171,6 @@ function(req, res, postcode = "", num = 1, dark = FALSE) {
     if (postC$status == 200) {
       currentCenter <- postC$location
 
-      # Create a flattened numeric vector
-      as_vec <- function(x) x %>% purrr::flatten_chr() %>% as.numeric
-
       # Get the closest indexes
       closest <- dbr %>% aniR::return_closest(
         allKeys = allKeys,
@@ -196,37 +192,64 @@ function(req, res, postcode = "", num = 1, dark = FALSE) {
       # Rename here for ease
       all.data <- results$data
 
-      # Get all data and get it ready for leaflet
+      # Get the unique items
+      uniqGroups <- all.data$group %>%
+        unique
+
+      # Get the number of polygons to draw
+      polyNum <- uniqGroups %>%
+        length
+
+      # Get all data and get it ready for leaflet by splitting by NA
       new.data <- data.frame()
-      uniqGroups <- all.data$group %>% unique
-      for (k in 1:(uniqGroups %>% length)) {
-        subs.data <- all.data %>% subset(all.data$group %>% `==`(uniqGroups[k]))
-        new.data %<>% rbind(subs.data[ , 1:2])
-        if (k != (uniqGroups %>% length)) new.data %<>% rbind(NA)
+      for (k in 1:polyNum) {
+        new.data %<>% rbind(
+          all.data %>%
+            subset(all.data$group %>% `==`(uniqGroups[k])) %>%
+            dplyr::select(c("long", "lat"))
+          )
+        if (k %>% `!=`(polyNum)) new.data %<>% rbind(NA)
       }
+
+      # Get appropriate colours
+      myCols <- RColorBrewer::brewer.pal(n = 9, name = "Set1") %>%
+        rep(polyNum %>% `/`(9) %>% ceiling) %>%
+        `[`(1:polyNum)
 
       # Create the widget here
       m <- new.data %>%
         as.matrix %>%
         leaflet::leaflet() %>%
-        leaflet::addTiles(group = "Light") %>%
+        leaflet::addTiles(
+          group = "Light"
+        ) %>%
         leaflet::addProviderTiles(
           provider = leaflet::providers$OpenStreetMap.BlackAndWhite,
           group = "Dark"
         ) %>%
         leaflet::addPolygons(
-          color = "black" %>% rep(4),
-          fillColor = c("blue", "red", "green", "yellow"),
-          highlightOptions = leaflet::highlightOptions(color = "white", weight = 2, bringToFront = TRUE),
-          popup = "hey"
+          color = "black" %>% rep(polyNum),
+          fillColor = myCols,
+          highlightOptions = leaflet::highlightOptions(
+            color = "white",
+            weight = 2,
+            bringToFront = TRUE
+          ),
+          popup = uniqGroups
         ) %>%
-        leaflet::addMarkers(lng = myLocation$x, lat = myLocation$y, popup = postcode %>% toupper) %>%
+        leaflet::addMarkers(
+          lng = currentCenter[1],
+          lat = currentCenter[2],
+          popup = postcode %>% toupper
+        ) %>%
         leaflet::addLayersControl(
           baseGroups = c("Light", "Dark"),
           options = leaflet::layersControlOptions(collapsed = FALSE)
         )
     } else {
       res$status <- postC$status
+      m <- leaflet::leaflet() %>%
+        leaflet::addTiles()
     }
   } else {
     m <- leaflet::leaflet() %>%
