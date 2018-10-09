@@ -13,6 +13,8 @@ Imports:
   magrittr,
   leaflet,
   plumber,
+  RColorBrewer,
+  htmlwidgets,
   redux,
   geosphere,
   httr,
