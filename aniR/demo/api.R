@@ -239,11 +239,22 @@ function(req, res, postcode = "", num = 1, dark = FALSE) {
       m <- new.data %>%
         as.matrix %>%
         leaflet::leaflet() %>%
-        leaflet::addTiles() %>%
-        leaflet::addPolygons(color = "red", fillColor = "red") %>%
-        leaflet::addMarkers(lng = myLocation$x, lat = myLocation$y, popup = "Current Location")
-
-      if (dark) m %<>% leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter)
+        leaflet::addTiles(group = "Light") %>%
+        leaflet::addProviderTiles(
+          provider = leaflet::providers$CartoDB.DarkMatter,
+          group = "Dark"
+        ) %>%
+        leaflet::addPolygons(
+          color = "black" %>% rep(4),
+          fillColor = c("blue", "red", "green", "yellow"),
+          highlightOptions = leaflet::highlightOptions(color = "white", weight = 2, bringToFront = TRUE),
+          popup = "hey"
+        ) %>%
+        leaflet::addMarkers(lng = myLocation$x, lat = myLocation$y, popup = postcode %>% toupper) %>%
+        leaflet::addLayersControl(
+          baseGroups = c("Light", "Dark"),
+          options = leaflet::layersControlOptions(collapsed = FALSE)
+        )
     } else {
       res$status <- postC$status
     }
