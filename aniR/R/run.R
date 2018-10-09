@@ -1,10 +1,16 @@
-library(plumber)
-library(magrittr)
+#' @title Run
+#'
+#' @importFrom magrittr %>% %<>%
+#'
+#' @export
 
-p <- getwd() %>%
-  paste0("/demo/api.R") %>%
-  plumber::plumb() %>%
-  `$`("run")
 
-# Run on port..
-p(port = 8003)
+run <- function(portNum = 8003) {
+  # Source the API
+  p <- system.file("extdata", "api.R", package = "aniR") %>%
+    plumber::plumb() %>%
+    `$`("run")
+
+  # Run on designated port
+  p(port = portNum)
+}
