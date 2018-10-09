@@ -195,36 +195,6 @@ function(req, res, postcode = "", num = 1, dark = FALSE) {
 
       # Rename here for ease
       all.data <- results$data
-      longMinMax <- results$long
-      latMinMax <- results$lat
-      oids <- results$oids
-
-      # Add the center into min and max..
-      if (currentCenter[1] < longMinMax[1]) longMinMax[1] <- currentCenter[1]
-      if (currentCenter[1] > longMinMax[2]) longMinMax[2] <- currentCenter[1]
-      if (currentCenter[2] < latMinMax[1]) latMinMax[1] <- currentCenter[2]
-      if (currentCenter[2] > latMinMax[2]) latMinMax[2] <- currentCenter[2]
-
-      # Calculate zoom factor here
-      zoomVal <- list(
-        long = longMinMax,
-        lat = latMinMax,
-        center = currentCenter
-      ) %>%
-        aniR::calculate_zoom()
-
-      # Calculate new center position
-      newCenter <- c(
-        longMinMax[2] %>% `-`(longMinMax[1]) %>% `/`(2) %>% `+`(longMinMax[1]),
-        latMinMax[2] %>% `-`(latMinMax[1]) %>% `/`(2) %>% `+`(latMinMax[1])
-      )
-
-      # Set up data frame of postcode query for the plot
-      myLocation <- data.frame(
-        x = currentCenter[1],
-        y = currentCenter[2],
-        stringsAsFactors = FALSE
-      )
 
       # Get all data and get it ready for leaflet
       new.data <- data.frame()
@@ -241,7 +211,7 @@ function(req, res, postcode = "", num = 1, dark = FALSE) {
         leaflet::leaflet() %>%
         leaflet::addTiles(group = "Light") %>%
         leaflet::addProviderTiles(
-          provider = leaflet::providers$CartoDB.DarkMatter,
+          provider = leaflet::providers$OpenStreetMap.BlackAndWhite,
           group = "Dark"
         ) %>%
         leaflet::addPolygons(
